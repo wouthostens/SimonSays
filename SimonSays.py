@@ -148,12 +148,8 @@ def main():
 
         new_color = colors_with_hue_levels[random.randint(0, 3)]
 
-        # logging.info(new_color)
-
         color_memory.append(new_color)
         color_memory_names.append(new_color['name'])
-
-        # logging.info(color_memory)
 
         for item in color_memory:
 
