@@ -2,7 +2,9 @@
 import requests
 import random
 import time
+import logging
 
+logging.basicConfig(level=logging.INFO)
 
 BRIDGE_IP = '172.17.187.253'
 AUTHORIZED_USER = 'fAoQajpSocxzpkNodgpZ8u8LCji1epSCYSarbeXq'
@@ -11,6 +13,7 @@ GROUP_ACTION_ENDPOINT = f'http://{BRIDGE_IP}/api/{AUTHORIZED_USER}/groups/1/acti
 LIGHTSWITCH_STATE_ENDPOINT = f'http://{BRIDGE_IP}/api/{AUTHORIZED_USER}/sensors/2'
 
 color_memory = []
+color_memory_names = []
 
 colors_with_hue_levels = (
     {
@@ -101,35 +104,22 @@ def get_switch_state():
     return r.json()['state']
 
 
-def game_over(flash_count: int):
-    """Trigger a flashing red/white light
+def game_over():
+    """urn off all lights in group
 
     Keyword arguments:
-    flash_count -- amount of red/white flashes (int)
+    /
 
     Returns:
     /
     """
 
-    for _ in range(flash_count):
-
-        set_group_state(
-            state=True,
-            saturation=colors_with_hue_levels[1]['saturation_level'],
-            brightness=colors_with_hue_levels[1]['brightness_level'],
-            hue=colors_with_hue_levels[1]['hue_level']
-        )
-
-        time.sleep(0.2)
-
-        set_group_state(
-            state=True,
-            saturation=colors_with_hue_levels[4]['saturation_level'],
-            brightness=colors_with_hue_levels[4]['brightness_level'],
-            hue=colors_with_hue_levels[4]['hue_level']
-        )
-
-        time.sleep(0.2)
+    set_group_state(
+        state=False,
+        saturation=0,
+        brightness=0,
+        hue=0
+    )
 
     return
 
@@ -158,7 +148,12 @@ def main():
 
         new_color = colors_with_hue_levels[random.randint(0, 3)]
 
-        color_memory.append(new_color['name'])
+        # logging.info(new_color)
+
+        color_memory.append(new_color)
+        color_memory_names.append(new_color['name'])
+
+        # logging.info(color_memory)
 
         for item in color_memory:
 
@@ -169,45 +164,44 @@ def main():
                 hue=item['hue_level']
             )
 
-            time.sleep(1)
+            time.sleep(2)
 
             set_group_state(
                 state=True,
-                saturation=color_memory[4]['saturation_level'],
-                brightness=color_memory[4]['brightness_level'],
-                hue=color_memory[4]['hue_level']
+                saturation=colors_with_hue_levels[4]['saturation_level'],
+                brightness=colors_with_hue_levels[4]['brightness_level'],
+                hue=colors_with_hue_levels[4]['hue_level']
             )
 
         user_inputs = []
-        previous_timestamp = ''
 
-        while len(color_memory) < len(user_inputs):
+        while len(user_inputs) < len(color_memory):
 
-            state = get_switch_state()
-            buttonevent = state['buttonevent']
-            timestamp = state['timestamp']
+            previous_timestamp = get_switch_state()['lastupdated']
+            timestamp = previous_timestamp
 
-            while True:
-                if (previous_timestamp != timestamp):
-                    previous_timestamp = timestamp
-                    break
+            while previous_timestamp == timestamp:
+
+                state = get_switch_state()
+
+                if (previous_timestamp != state['lastupdated']):
+
+                    buttonevent = state['buttonevent']
+                    timestamp = state['lastupdated']
 
             match buttonevent:
-                case 1002:
+                case 1000 | 1001 | 1002 | 1003:
                     input = 'yellow'
-                case 2002:
+                case 2000 | 2001 | 2002 | 2003:
                     input = 'green'
-                case 3002:
+                case 3000 | 3001 | 3002 | 3003:
                     input = 'blue'
-                case 4002:
+                case 4000 | 4001 | 4002 | 4003:
                     input = 'red'
-                case _:
-                    input = None
 
-            if input is not None:
-                user_inputs.append(input)
+            user_inputs.append(input)
 
-        if color_memory != user_inputs:
+        if color_memory_names != user_inputs:
             break
 
     game_over()
