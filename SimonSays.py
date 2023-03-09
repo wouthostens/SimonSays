@@ -1,99 +1,217 @@
+
 import requests
 import random
 import time
-import speech_recognition as sr
-import json
-url = "http://172.17.187.253/api/fAoQajpSocxzpkNodgpZ8u8LCji1epSCYSarbeXq/groups/1/action"
-urlsensor = "http://172.17.187.253/api/fAoQajpSocxzpkNodgpZ8u8LCji1epSCYSarbeXq/sensors/2"
 
-recognizer = sr.Recognizer()
-microphone = sr.Microphone()
-colors = []
-colors_values = {
-    "green": 25500,
-    "red": 65535,
-    "blue": 46920,
-    "yellow": 11218,
-    "purple": 51024,
-    "white": 41136}
-color_names = ["green", "red","blue","yellow","purple"]
-color = []
-def recognize_speech_from_mic(recognizer, microphone):
-    # check that recognizer and microphone arguments are appropriate type
-    if not isinstance(recognizer, sr.Recognizer):
-        raise TypeError("`recognizer` must be `Recognizer` instance")
 
-    if not isinstance(microphone, sr.Microphone):
-        raise TypeError("`microphone` must be `Microphone` instance")
+BRIDGE_IP = '172.17.187.253'
+AUTHORIZED_USER = 'fAoQajpSocxzpkNodgpZ8u8LCji1epSCYSarbeXq'
 
-    # adjust the recognizer sensitivity to ambient noise and record audio
-    # from the microphone
-    with microphone as source:
-        recognizer.adjust_for_ambient_noise(source)
-        audio = recognizer.listen(source)
-    print("I heard you")
-    # set up the response object
-    response = {
-        "success": True,
-        "error": None,
-        "transcription": None
+GROUP_ACTION_ENDPOINT = f'http://{BRIDGE_IP}/api/{AUTHORIZED_USER}/groups/1/action'
+LIGHTSWITCH_STATE_ENDPOINT = f'http://{BRIDGE_IP}/api/{AUTHORIZED_USER}/sensors/2'
+
+color_memory = []
+
+colors_with_hue_levels = (
+    {
+        'name': 'green',
+        'saturation_level': 254,
+        'brightness_level': 120,
+        'hue_level': 25500,
+
+
+    },
+    {
+        'name': 'red',
+        'saturation_level': 254,
+        'brightness_level': 120,
+        'hue_level': 65535,
+
+    },
+    {
+        'name': 'blue',
+        'saturation_level': 254,
+        'brightness_level': 120,
+        'hue_level': 46920,
+
+    },
+    {
+        'name': 'yellow',
+        'saturation_level': 254,
+        'brightness_level': 120,
+        'hue_level': 11218,
+
+    },
+    {
+        'name': 'white',
+        'saturation_level': 72,
+        'brightness_level': 120,
+        'hue_level': 41136,
+
     }
+)
 
-    # try recognizing the speech in the recording
-    # if a RequestError or UnknownValueError exception is caught,
-    #     update the response object accordingly
-    try:
-        response["transcription"] = recognizer.recognize_google(audio)
-    except sr.RequestError:
-        # API was unreachable or unresponsive
-        response["success"] = False
-        response["error"] = "API unavailable"
-    except sr.UnknownValueError:
-        # speech was unintelligible
-        response["error"] = "Unable to recognize speech"
 
-    return response
+def set_group_state(state: bool, saturation: int, brightness: int, hue: int):
+    """Set a new group state, aka change the color of a light group
 
-def game_over():
-    for _ in range(10):
-        r = requests.put(url, json={"on":True, "sat":254, "bri":200, "hue":colors_values["red"]}) 
+    Keyword arguments:
+    state -- state of the lights in the group (True or False)
+    saturation -- saturation value (int)
+    brightness -- brightness value (int)
+    hue -- hue value (int)
+
+    Hue Docs:
+    https://developers.meethue.com/develop/hue-api/groupds-api/#set-gr-state
+
+    Returns:
+    JSON response that details the success of sending each state parameter to the group.
+    """
+
+    r = requests.put(
+        url=GROUP_ACTION_ENDPOINT,
+        json={
+            'on': state,
+            'sat': saturation,
+            'bri': brightness,
+            'hue': hue
+        }
+    )
+
+    return r.json()
+
+
+def get_switch_state():
+    """Get the current state of the lightswitch
+
+    Keyword arguments:
+    /
+
+    Hue Docs:
+    https://developers.meethue.com/develop/hue-api/5-sensors-api/#get-sensor
+
+    Returns:
+    JSON response that details the state of the lightswitch
+    """
+
+    r = requests.get(
+        url=LIGHTSWITCH_STATE_ENDPOINT
+    )
+
+    return r.json()['state']
+
+
+def game_over(flash_count: int):
+    """Trigger a flashing red/white light
+
+    Keyword arguments:
+    flash_count -- amount of red/white flashes (int)
+
+    Returns:
+    /
+    """
+
+    for _ in range(flash_count):
+
+        set_group_state(
+            state=True,
+            saturation=colors_with_hue_levels[1]['saturation_level'],
+            brightness=colors_with_hue_levels[1]['brightness_level'],
+            hue=colors_with_hue_levels[1]['hue_level']
+        )
+
         time.sleep(0.2)
-        r = requests.put(url, json={"on":True, "sat":72, "bri":100, "hue":colors_values["white"]}) 
-        time.sleep(0.1)
+
+        set_group_state(
+            state=True,
+            saturation=colors_with_hue_levels[4]['saturation_level'],
+            brightness=colors_with_hue_levels[4]['brightness_level'],
+            hue=colors_with_hue_levels[4]['hue_level']
+        )
+
+        time.sleep(0.2)
+
+    return
 
 
-while True:
-    color = color_names[random.randint(0,3)]
-    colors.append(color)
+def main():
+    """Game Loop:
 
-    for x in colors:
-        r = requests.put(url, json={"on":True, "sat":254, "bri":120, "hue":colors_values[x]}) 
-        time.sleep(1)
-        r = requests.put(url, json={"on":True, "sat":72, "bri":120, "hue":colors_values["white"]}) 
-        time.sleep(0.5)
-    r = requests.put(url, json={"on":True, "sat":72, "bri":120, "hue":colors_values["white"]}) 
-    print("press the buttons, | is yellow, Big * is green, small * is blue, o is red")
-    antwoorden = []
-    previous_state = requests.get(urlsensor).json()
-    current_state = previous_state
-    print("oplossing: " +"".join(colors))
-    while len(colors) != len(antwoorden):
-        previous_state = current_state
+        1) picks a random color from the color tuple
+        2) adds the color to color memory
+        3) displays the color memory on a light group, each color is followed up by white
+        4) waits for user input, only soft presses are allowed and get added to the user input list
+        5) compares color memory to user input list
+        6) runs game over method if both lists don't match
 
-        while current_state == previous_state:
-            current_state = requests.get(urlsensor).json()
-        if str(current_state["state"].get("buttonevent")) not in ["1000", "2000", "3000", "4000"]:
-            antwoorden.append(str(current_state["state"].get("buttonevent")))
-            print("antwoorden: "+ "".join(antwoorden))
-    #answer = input("choices colors: green,red,blue,yellow,purple \n example: yellow blue blue blue yellow \n") #recognize_speech_from_mic(recognizer, microphone)
-    for i in range(len(antwoorden)):
-        antwoorden[i] = antwoorden[i].replace("1002","yellow").replace("1000","yellow").replace("2002", "green").replace("2000","green").replace("3002","blue").replace("3000","blue").replace("4002","red").replace("4000","red")
-    if "".join(colors) != "".join(antwoorden): 
-        break
-print("Jammer")
-game_over()
+    Keyword arguments:
+    /
+
+    Hue Docs:
+    /
+
+    Returns:
+    /
+    """
+
+    while True:
+
+        new_color = colors_with_hue_levels[random.randint(0, 3)]
+
+        color_memory.append(new_color['name'])
+
+        for item in color_memory:
+
+            set_group_state(
+                state=True,
+                saturation=item['saturation_level'],
+                brightness=item['brightness_level'],
+                hue=item['hue_level']
+            )
+
+            time.sleep(1)
+
+            set_group_state(
+                state=True,
+                saturation=color_memory[4]['saturation_level'],
+                brightness=color_memory[4]['brightness_level'],
+                hue=color_memory[4]['hue_level']
+            )
+
+        user_inputs = []
+        previous_timestamp = ''
+
+        while len(color_memory) < len(user_inputs):
+
+            state = get_switch_state()
+            buttonevent = state['buttonevent']
+            timestamp = state['timestamp']
+
+            while True:
+                if (previous_timestamp != timestamp):
+                    previous_timestamp = timestamp
+                    break
+
+            match buttonevent:
+                case 1002:
+                    input = 'yellow'
+                case 2002:
+                    input = 'green'
+                case 3002:
+                    input = 'blue'
+                case 4002:
+                    input = 'red'
+                case _:
+                    input = None
+
+            if input is not None:
+                user_inputs.append(input)
+
+        if color_memory != user_inputs:
+            break
+
+    game_over()
 
 
-
-
-
+if __name__ == "__main__":
+    main()
