@@ -130,7 +130,7 @@ def main():
         1) picks a random color from the color tuple
         2) adds the color to color memory
         3) displays the color memory on a light group, each color is followed up by white
-        4) waits for user input, only soft presses are allowed and get added to the user input list
+        4) waits for user input
         5) compares color memory to user input list
         6) runs game over method if both lists don't match
 
