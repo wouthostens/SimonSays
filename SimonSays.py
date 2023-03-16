@@ -105,7 +105,7 @@ def get_switch_state():
 
 
 def game_over():
-    """urn off all lights in group
+    """Turn off all lights in group
 
     Keyword arguments:
     /
